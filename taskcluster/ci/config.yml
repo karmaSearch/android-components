@@ -94,6 +94,7 @@ treeherder:
         service-location: service-location
         service-nimbus: service-nimbus
         service-pocket: service-pocket
+        service-learnandact: service-learnandact
         service-sync-autofill: service-sync-autofill
         service-sync-logins: service-sync-logins
         support-android-test: support-android-test

@@ -33,7 +33,7 @@ object PhotonColors {
     val Green20 = Color(0xFFB3FFE3)
     val Green30 = Color(0xFF87FFD1)
     val Green40 = Color(0xFF54FFBD)
-    val Green50 = Color(0xFF3FE1B0)
+    val Green50 = Color(0xFF2BCD6D)
     val Green60 = Color(0xFF2AC3A2)
     val Green70 = Color(0xFF008787)
     val Green80 = Color(0xFF005E5E)

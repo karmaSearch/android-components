@@ -311,6 +311,10 @@ projects:
     path: components/service/pocket
     description: 'A library to communicate with the Pocket API'
     publish: true
+  service-learnandact:
+    path: components/service/learnandact
+    description: 'A library to communicate with learn and act API'
+    publish: true
   support-base:
     path: components/support/base
     description: 'Base component containing building blocks for components.'
