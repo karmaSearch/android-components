@@ -155,7 +155,7 @@
 	<color name="photonLightGrey20">#fff0f0f4</color>
 	<color name="photonLightGrey30">#ffe0e0e6</color>
 	<color name="photonLightGrey40">#ffcfcfd8</color>
-	<color name="photonLightGrey50">#ffbfbfc9</color>
+	<color name="photonLightGrey50">#ffCCCCD3</color>
 	<color name="photonLightGrey60">#ffafafba</color>
 	<color name="photonLightGrey70">#ff9f9fad</color>
 	<color name="photonLightGrey80">#ff8f8f9d</color>
@@ -167,9 +167,9 @@
 	<color name="photonDarkGrey20">#ff4a4a55</color>
 	<color name="photonDarkGrey30">#ff42414d</color>
 	<color name="photonDarkGrey40">#ff3a3944</color>
-	<color name="photonDarkGrey50">#ff32313c</color>
-	<color name="photonDarkGrey60">#ff2b2a33</color>
-	<color name="photonDarkGrey70">#ff23222b</color>
+	<color name="photonDarkGrey50">#ff242629</color>
+	<color name="photonDarkGrey60">#ff242629</color>
+	<color name="photonDarkGrey70">#B316161A</color>
 	<color name="photonDarkGrey80">#ff1c1b22</color>
 	<color name="photonDarkGrey90">#ff15141a</color>
 
