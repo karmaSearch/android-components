@@ -30,6 +30,7 @@ class DefaultTopSitesStorage(
     private val pinnedSitesStorage: PinnedSiteStorage,
     private val historyStorage: PlacesHistoryStorage,
     private val defaultTopSites: List<Pair<String, String>> = listOf(),
+    private val searchEngineStartURL: String?,
     coroutineContext: CoroutineContext = Dispatchers.IO
 ) : TopSitesStorage, Observable<TopSitesStorage.Observer> by ObserverRegistry() {
 
@@ -92,7 +93,8 @@ class DefaultTopSitesStorage(
             val frecentSites = historyStorage
                 .getTopFrecentSites(totalSites, frecencyConfig)
                 .map { it.toTopSite() }
-                .filter { !pinnedSites.hasUrl(it.url) }
+                .filter { !pinnedSites.hasUrl(it.url)}
+                .filter {  if (searchEngineStartURL != null) !it.url.startsWith(searchEngineStartURL, true) else true }
                 .take(numSitesRequired)
 
             topSites.addAll(frecentSites)
