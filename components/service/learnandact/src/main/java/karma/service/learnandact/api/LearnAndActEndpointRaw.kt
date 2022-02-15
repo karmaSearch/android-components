@@ -30,7 +30,7 @@ internal class LearnAndActEndpointRaw internal constructor(
     }
 
     companion object {
-        private const val pocketEndpointUrl = "https://about.mykarma.org/i18n/iOS_app/"
+        private const val pocketEndpointUrl = "https://about.karmasearch.org/i18n/iOS_app/"
 
         /**
          * Returns a new instance of [PocketEndpointRaw].
