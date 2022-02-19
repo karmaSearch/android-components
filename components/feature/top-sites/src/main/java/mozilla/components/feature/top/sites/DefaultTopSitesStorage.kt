@@ -4,6 +4,7 @@
 
 package mozilla.components.feature.top.sites
 
+import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -30,7 +31,6 @@ class DefaultTopSitesStorage(
     private val pinnedSitesStorage: PinnedSiteStorage,
     private val historyStorage: PlacesHistoryStorage,
     private val defaultTopSites: List<Pair<String, String>> = listOf(),
-    private val searchEngineStartURL: String?,
     coroutineContext: CoroutineContext = Dispatchers.IO
 ) : TopSitesStorage, Observable<TopSitesStorage.Observer> by ObserverRegistry() {
 
@@ -80,13 +80,15 @@ class DefaultTopSitesStorage(
 
     override suspend fun getTopSites(
         totalSites: Int,
-        frecencyConfig: FrecencyThresholdOption?
+        frecencyConfig: FrecencyThresholdOption?,
+        searchEngineStartURL: String?
     ): List<TopSite> {
         val topSites = ArrayList<TopSite>()
         val pinnedSites = pinnedSitesStorage.getPinnedSites().take(totalSites)
         val numSitesRequired = totalSites - pinnedSites.size
         topSites.addAll(pinnedSites)
 
+        Log.d("DefaultSearchEngine", searchEngineStartURL.toString())
         if (frecencyConfig != null && numSitesRequired > 0) {
             // Get 'totalSites' sites for duplicate entries with
             // existing pinned sites

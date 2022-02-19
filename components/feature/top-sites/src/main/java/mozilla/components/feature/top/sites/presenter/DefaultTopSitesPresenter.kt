@@ -25,6 +25,7 @@ internal class DefaultTopSitesPresenter(
     override val view: TopSitesView,
     override val storage: TopSitesStorage,
     private val config: () -> TopSitesConfig,
+    private val searchEngineStartURL: String?,
     coroutineContext: CoroutineContext = Dispatchers.IO
 ) : TopSitesPresenter, TopSitesStorage.Observer {
 
@@ -46,7 +47,8 @@ internal class DefaultTopSitesPresenter(
         scope.launch {
             val topSites = storage.getTopSites(
                 innerConfig.totalSites,
-                innerConfig.frecencyConfig
+                innerConfig.frecencyConfig,
+                searchEngineStartURL
             )
 
             scope.launch(Dispatchers.Main) {

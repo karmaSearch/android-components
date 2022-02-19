@@ -48,7 +48,8 @@ interface TopSitesStorage : Observable<TopSitesStorage.Observer> {
      */
     suspend fun getTopSites(
         totalSites: Int,
-        frecencyConfig: FrecencyThresholdOption?
+        frecencyConfig: FrecencyThresholdOption?,
+        searchEngineStartURL: String?
     ): List<TopSite>
 
     /**
