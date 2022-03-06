@@ -4,12 +4,79 @@ title: Changelog
 permalink: /changelog/
 ---
 
-# 95.0.0 (In Development)
-* [Commits](https://github.com/mozilla-mobile/android-components/compare/v94.0.0...main)
-* [Milestone](https://github.com/mozilla-mobile/android-components/milestone/142?closed=1)
+# 97.0.0 (In Development)
+* [Commits](https://github.com/mozilla-mobile/android-components/compare/v96.0.0...main)
+* [Milestone](https://github.com/mozilla-mobile/android-components/milestone/144?closed=1)
 * [Dependencies](https://github.com/mozilla-mobile/android-components/blob/main/buildSrc/src/main/java/Dependencies.kt)
 * [Gecko](https://github.com/mozilla-mobile/android-components/blob/main/buildSrc/src/main/java/Gecko.kt)
 * [Configuration](https://github.com/mozilla-mobile/android-components/blob/main/.config.yml)
+
+* **support-ktx**
+  * 🚒 Bug fixed [issue #11527](https://github.com/mozilla-mobile/android-components/issues/11527) - Fix some situations in which the immersive mode wasn't properly applied.
+
+* **support-ktx**
+  * 🚒 Bug fixed [issue #11374](https://github.com/mozilla-mobile/android-components/issues/11374) - Restore immersive mode after interacting with other Windows.
+  * ⚠️ **This is a breaking change**: `OnWindowFocusChangeListener` parameter is removed from `Activity.enterToImmersiveMode()`. There was no way to guarantee that the argument knew to handle immersive mode. Now everything is handled internally.
+
+* **feature-prompts**:
+  * Removes deprecated constructor in `PromptFeature`.
+
+* * **browser-engine**, **concept-engine*** **feature-sitepermissions**
+  * 🌟️️ **Add support for a new `storage_access` API prompt.
+
+* **concept-storage**:
+  * ⚠️ **This is a breaking change**: `KeyProvider#key` has been renamed to `KeyProvider#getOrGenerateKey` and is now `suspend`.
+  * ⚠️ **This is a breaking change**: `KeyRecoveryHandler` has been removed.
+  * ⚠️ **This is a breaking change**: `CreditCardsAddressesStorage` gained a new method - `scrubEncryptedData`.
+  * 🌟️️ **Add an abstract `KeyManager` which implements `KeyProvider` and knows how to store, retrieve and verify managed keys.
+
+* **service-sync-logins**:
+  * `LoginsCrypto` is now using `concept-storage`@`KeyManager` as its basis.
+
+* **service-sync-autofill**:
+  * `AutofillCrypto` is now using `concept-storage`@`KeyManager` as its basis.
+  * `AutofillCrypto` is now able to recover from key loss (by scrubbing encrypted credit card data).
+
+* **browser-errorpages**
+  * `ErrorPages.createUrlEncodedErrorPage()` allows overriding the title or description for specific error types now.
+
+* **browser-engine-gecko**
+  * Added `EngineSession.goBack(boolean)` and `EngineSession.goForward(boolean)` for user interaction based navigation.
+
+* **feature-session**
+  * Added support in `SessionUseCases.GoBackUseCase` and `SessionUseCases.GoForwardUseCase` to support optional `userInteraction` parameter in the Gecko engine.
+
+* **service-glean**
+  * 🆙 Updated Glean to version 42.3.0 ([changelog](https://github.com/mozilla/glean/releases/tag/v42.3.0))
+    * Includes automatic detection of tags.yaml files
+
+# 96.0.0
+* [Commits](https://github.com/mozilla-mobile/android-components/compare/v95.0.0...v96.0.0)
+* [Milestone](https://github.com/mozilla-mobile/android-components/milestone/143?closed=1)
+* [Dependencies](https://github.com/mozilla-mobile/android-components/blob/v96.0.0/buildSrc/src/main/java/Dependencies.kt)
+* [Gecko](https://github.com/mozilla-mobile/android-components/blob/v96.0.0/buildSrc/src/main/java/Gecko.kt)
+* [Configuration](https://github.com/mozilla-mobile/android-components/blob/v96.0.0/.config.yml)
+
+* **browser-engine-gecko**:
+  * Removes deprecated `GeckoLoginDelegateWrapper`. Please use `GeckoAutocompleteStorageDelegate`. [#11311](https://github.com/mozilla-mobile/android-components/issues/11311)
+  * Added setting for HTTPS-Only mode [#5935](https://github.com/mozilla-mobile/focus-android/issues/5935)
+
+* **support-utils**
+  * 🌟️ Add `String.toCreditCardNumber` for removing characters other than digits from a credit card string number.
+  * 🚒 Bug fixed [issue #11360](https://github.com/mozilla-mobile/android-components/issues/11360) - Crash when saving credit cards
+
+# 95.0.0
+* [Commits](https://github.com/mozilla-mobile/android-components/compare/v94.0.0...v95.0.0)
+* [Milestone](https://github.com/mozilla-mobile/android-components/milestone/142?closed=1)
+* [Dependencies](https://github.com/mozilla-mobile/android-components/blob/v95.0.0/buildSrc/src/main/java/Dependencies.kt)
+* [Gecko](https://github.com/mozilla-mobile/android-components/blob/v95.0.0/buildSrc/src/main/java/Gecko.kt)
+* [Configuration](https://github.com/mozilla-mobile/android-components/blob/v95.0.0/.config.yml)
+
+* **feature-session**
+  * 🌟️️ **Add callback as a parameter to RemoveAllExceptionsUseCase which will be called after exceptions removing
+
+* **concept-toolbar**
+  * 🌟️️ **Add removeNavigationAction method which removes a previously added navigation action
 
 * **support-utils**
   * 🌟️️ **Add Firefox Focus packages to known browsers list
@@ -17,6 +84,8 @@ permalink: /changelog/
 * **concept-tabstray**
   * ⚠️ **This is a breaking change**: This component will be removed in future release.
      * Instead use the `TabsTray` interface from `browser-tabstray`.
+* **feature-session**
+  * * 🌟️ Adds a new `TrackingProtectionUseCases.addException`: Now allows to persist the exception in private mode using the parameter`persistInPrivateMode`.
 
 * **browser-state**:
   * 🌟️ Adds a new `previewImageUrl` in `ContentState` which provides a preview image of the page (e.g. the hero image), if available.
@@ -24,7 +93,7 @@ permalink: /changelog/
 * **compose-awesomebar**
   * `AwesomeBar` takes an optional `Profiler`. If passed in, two new profiler markers will be added: `SuggestionFetcher.fetch` and `Suggestion update`.
 
-# 94.0.0 (In Development)
+# 94.0.0
 * [Commits](https://github.com/mozilla-mobile/android-components/compare/v93.0.0...v94.0.0)
 * [Milestone](https://github.com/mozilla-mobile/android-components/milestone/141?closed=1)
 * [Dependencies](https://github.com/mozilla-mobile/android-components/blob/v94.0.0/buildSrc/src/main/java/Dependencies.kt)

@@ -172,7 +172,7 @@ interface LoginsStorage : AutoCloseable {
      * @param entry [LoginEntry] being saved
      * @return [Login] that should be updated, or null if the login should be added
      */
-    fun findLoginToUpdate(entry: LoginEntry): Login?
+    suspend fun findLoginToUpdate(entry: LoginEntry): Login?
 
     /**
      * Inserts the provided login into the database
@@ -237,7 +237,7 @@ interface LoginsStorage : AutoCloseable {
      * @param login [EncryptedLogin] to decrypt
      * @return [Login] with decrypted data
      */
-    fun decryptLogin(login: EncryptedLogin): Login
+    suspend fun decryptLogin(login: EncryptedLogin): Login
 }
 
 /**

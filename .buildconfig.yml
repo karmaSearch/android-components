@@ -1,6 +1,6 @@
 # Please keep this version in sync with version.txt
 # version.txt should be the new source of truth for version numbers
-componentsVersion: 95.0.15
+componentsVersion: 97.0.13
 # Please add a treeherder group in taskcluster/ci/config.yml if you add a new project here.
 projects:
   compose-awesomebar:
@@ -195,10 +195,6 @@ projects:
     path: components/feature/addons
     description: 'A feature that provides for managing add-ons.'
     publish: true
-  browser-awesomebar:
-    path: components/browser/awesomebar
-    description: 'A customizable awesomebar component for browsers.'
-    publish: true
   browser-domains:
     path: components/browser/domains
     description: 'Localized and customizable domain lists for auto-completion in browsers.'
@@ -234,10 +230,6 @@ projects:
   browser-state:
     path: components/browser/state
     description: 'Component responsible for maintaining the centralized state of a browser engine.'
-    publish: true
-  browser-storage-memory:
-    path: components/browser/storage-memory
-    description: 'A memory-backed implementation of core data storage.'
     publish: true
   browser-storage-sync:
     path: components/browser/storage-sync
@@ -334,6 +326,10 @@ projects:
   support-test:
     path: components/support/test
     description: 'A collection of helpers for testing components (local unit tests).'
+    publish: true
+  support-test-fakes:
+    path: components/support/test-fakes
+    description: 'A collection of fake implementations for testing purposes.'
     publish: true
   support-test-libstate:
     path: components/support/test-libstate
@@ -462,5 +458,10 @@ projects:
   tooling-glean-gradle:
     path: components/tooling/glean-gradle-plugin
     description: 'A Gradle plugin to generate code for Glean metrics.'
+    publish: true
+    artifact-type: jar
+  tooling-nimbus-gradle:
+    path: components/tooling/nimbus-gradle-plugin
+    description: 'A Gradle plugin to generate code for the Nimbus Feature API.'
     publish: true
     artifact-type: jar

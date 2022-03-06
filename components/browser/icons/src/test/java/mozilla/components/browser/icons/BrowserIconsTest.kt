@@ -213,7 +213,7 @@ class BrowserIconsTest {
         val request = IconRequest(url = "https://www.mozilla.org")
 
         doReturn(mockedBitmap).`when`(mockedIcon).bitmap
-        doReturn(result).`when`(icons).loadIcon(request)
+        doReturn(result).`when`(icons).loadIconInternalAsync(eq(request), any())
 
         val job = icons.loadIntoView(view, request)
 
@@ -240,7 +240,7 @@ class BrowserIconsTest {
 
         val request = IconRequest(url = "https://www.mozilla.org")
 
-        doReturn(result).`when`(icons).loadIcon(request)
+        doReturn(result).`when`(icons).loadIconInternalAsync(eq(request), any())
 
         val job = icons.loadIntoView(view, request, placeholder = placeholder, error = error)
 
@@ -264,7 +264,7 @@ class BrowserIconsTest {
         val request = IconRequest(url = "https://www.mozilla.org")
 
         doReturn(previousJob).`when`(view).getTag(R.id.mozac_browser_icons_tag_job)
-        doReturn(result).`when`(icons).loadIcon(request)
+        doReturn(result).`when`(icons).loadIconInternalAsync(eq(request), any())
 
         icons.loadIntoView(view, request)
 
@@ -308,5 +308,20 @@ class BrowserIconsTest {
         // Verifying it's not anymore
         assertEquals(0, sharedDiskCache.getResources(testContext, request).size)
         assertEquals(0, sharedMemoryCache.getResources(request).size)
+    }
+
+    @Test
+    fun `GIVEN an IconRequest WHEN getDesiredSize is called THEN set min and max bounds to the request target size`() {
+        val request = IconRequest("https://mozilla.org", IconRequest.Size.LAUNCHER_ADAPTIVE)
+
+        val result = request.getDesiredSize(testContext, 11, 101)
+
+        assertEquals(
+            testContext.resources.getDimensionPixelSize(IconRequest.Size.LAUNCHER_ADAPTIVE.dimen),
+            result.targetSize
+        )
+        assertEquals(11, result.minSize)
+        assertEquals(101, result.maxSize)
+        assertEquals(MAXIMUM_SCALE_FACTOR, result.maxScaleFactor)
     }
 }

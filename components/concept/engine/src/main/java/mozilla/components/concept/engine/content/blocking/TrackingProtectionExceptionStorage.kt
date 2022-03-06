@@ -22,8 +22,10 @@ interface TrackingProtectionExceptionStorage {
     /**
      * Adds a new [session] to the exception list.
      * @param session The [session] that will be added to the exception list.
+     * @param persistInPrivateMode Indicates if the exception should be persistent in private mode
+     * defaults to false.
      */
-    fun add(session: EngineSession)
+    fun add(session: EngineSession, persistInPrivateMode: Boolean = false)
 
     /**
      * Removes a [session] from the exception list.
@@ -49,11 +51,7 @@ interface TrackingProtectionExceptionStorage {
      * Removes all domains from the exception list.
      * @param activeSessions A list of all active sessions (including CustomTab
      * sessions) to be notified.
+     * @param onRemove A callback to inform that the list of active sessions has been removed
      */
-    fun removeAll(activeSessions: List<EngineSession>? = null)
-
-    /**
-     * Restore all domains stored in the storage.
-     */
-    fun restore()
+    fun removeAll(activeSessions: List<EngineSession>? = null, onRemove: () -> Unit = {})
 }

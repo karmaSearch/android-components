@@ -56,6 +56,7 @@ import org.mozilla.geckoview.ContentBlockingController
 import org.mozilla.geckoview.ContentBlockingController.Event
 import org.mozilla.geckoview.GeckoResult
 import org.mozilla.geckoview.GeckoRuntime
+import org.mozilla.geckoview.GeckoRuntimeSettings
 import org.mozilla.geckoview.GeckoSession
 import org.mozilla.geckoview.GeckoWebExecutor
 import org.mozilla.geckoview.WebExtensionController
@@ -71,7 +72,7 @@ class GeckoEngine(
     private val runtime: GeckoRuntime = GeckoRuntime.getDefault(context),
     executorProvider: () -> GeckoWebExecutor = { GeckoWebExecutor(runtime) },
     override val trackingProtectionExceptionStore: TrackingProtectionExceptionStorage =
-        TrackingProtectionExceptionFileStorage(context, runtime)
+        GeckoTrackingProtectionExceptionStorage(runtime)
 ) : Engine, WebExtensionRuntime {
     private val executor by lazy { executorProvider.invoke() }
     private val localeUpdater = LocaleSettingUpdater(context, runtime)
@@ -115,7 +116,6 @@ class GeckoEngine(
             @Suppress("TooGenericExceptionThrown")
             throw RuntimeException("GeckoRuntime is shutting down")
         }
-        trackingProtectionExceptionStore.restore()
     }
 
     /**
@@ -672,6 +672,21 @@ class GeckoEngine(
         override var enterpriseRootsEnabled: Boolean
             get() = runtime.settings.enterpriseRootsEnabled
             set(value) { runtime.settings.enterpriseRootsEnabled = value }
+
+        override var httpsOnlyMode: Engine.HttpsOnlyMode
+            get() = when (runtime.settings.allowInsecureConnections) {
+                GeckoRuntimeSettings.ALLOW_ALL -> Engine.HttpsOnlyMode.DISABLED
+                GeckoRuntimeSettings.HTTPS_ONLY_PRIVATE -> Engine.HttpsOnlyMode.ENABLED_PRIVATE_ONLY
+                GeckoRuntimeSettings.HTTPS_ONLY -> Engine.HttpsOnlyMode.ENABLED
+                else -> throw java.lang.IllegalStateException("Unknown HTTPS-Only mode returned by GeckoView")
+            }
+            set(value) {
+                runtime.settings.allowInsecureConnections = when (value) {
+                    Engine.HttpsOnlyMode.DISABLED -> GeckoRuntimeSettings.ALLOW_ALL
+                    Engine.HttpsOnlyMode.ENABLED_PRIVATE_ONLY -> GeckoRuntimeSettings.HTTPS_ONLY_PRIVATE
+                    Engine.HttpsOnlyMode.ENABLED -> GeckoRuntimeSettings.HTTPS_ONLY
+                }
+            }
     }.apply {
         defaultSettings?.let {
             this.javascriptEnabled = it.javascriptEnabled
@@ -690,6 +705,7 @@ class GeckoEngine(
             this.clearColor = it.clearColor
             this.loginAutofillEnabled = it.loginAutofillEnabled
             this.enterpriseRootsEnabled = it.enterpriseRootsEnabled
+            this.httpsOnlyMode = it.httpsOnlyMode
         }
     }
 

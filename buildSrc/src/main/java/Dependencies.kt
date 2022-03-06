@@ -29,16 +29,16 @@ object Versions {
     const val disklrucache = "2.0.2"
     const val leakcanary = "2.4"
 
-    const val mozilla_appservices = "86.0.1"
+    const val mozilla_appservices = "87.1.0"
 
-    const val mozilla_glean = "42.0.1"
+    const val mozilla_glean = "42.3.0"
 
     const val material = "1.2.1"
 
-    const val compose_version = "1.0.4"
+    const val compose_version = "1.0.5"
 
     object AndroidX {
-        const val activityCompose = "1.3.1"
+        const val activityCompose = "1.4.0"
         const val annotation = "1.1.0"
         const val appcompat = "1.3.0"
         const val autofill = "1.1.0"

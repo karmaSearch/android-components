@@ -14,6 +14,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.launch
+import mozilla.components.browser.engine.gecko.ext.isExcludedForTrackingProtection
 import mozilla.components.browser.engine.gecko.fetch.toResponse
 import mozilla.components.browser.engine.gecko.mediasession.GeckoMediaSessionDelegate
 import mozilla.components.browser.engine.gecko.permission.GeckoPermissionRequest
@@ -96,6 +97,8 @@ class GeckoEngineSession(
     internal var lastLoadRequestUri: String? = null
     internal var pageLoadingUrl: String? = null
     internal var scrollY: Int = 0
+    // The Gecko site permissions for the loaded site.
+    internal var geckoPermissions: List<ContentPermission> = emptyList()
 
     internal var job: Job = Job()
     private var canGoBack: Boolean = false
@@ -214,8 +217,8 @@ class GeckoEngineSession(
     /**
      * See [EngineSession.goBack]
      */
-    override fun goBack() {
-        geckoSession.goBack()
+    override fun goBack(userInteraction: Boolean) {
+        geckoSession.goBack(userInteraction)
         if (canGoBack) {
             notifyObservers { onNavigateBack() }
         }
@@ -223,8 +226,8 @@ class GeckoEngineSession(
     /**
      * See [EngineSession.goForward]
      */
-    override fun goForward() {
-        geckoSession.goForward()
+    override fun goForward(userInteraction: Boolean) {
+        geckoSession.goForward(userInteraction)
     }
 
     /**
@@ -307,20 +310,11 @@ class GeckoEngineSession(
 
     /**
      * Indicates if this [EngineSession] should be ignored the tracking protection policies.
-     * @param onResult A callback to inform if this [EngineSession] is in
+     * @return if this [EngineSession] is in
      * the exception list, true if it is in, otherwise false.
      */
-    @Suppress("DEPRECATION")
-    // The deprecation will be addressed on
-    // https://github.com/mozilla-mobile/android-components/issues/11101
-    internal fun isIgnoredForTrackingProtection(onResult: (Boolean) -> Unit) {
-        runtime.contentBlockingController.checkException(geckoSession).accept {
-            if (it != null) {
-                onResult(it)
-            } else {
-                onResult(false)
-            }
-        }
+    internal fun isIgnoredForTrackingProtection(): Boolean {
+        return geckoPermissions.any { it.isExcludedForTrackingProtection }
     }
 
     /**
@@ -461,6 +455,7 @@ class GeckoEngineSession(
     @Suppress("ComplexMethod")
     private fun createNavigationDelegate() = object : GeckoSession.NavigationDelegate {
         override fun onLocationChange(session: GeckoSession, url: String?, geckoPermissions: List<ContentPermission>) {
+            this@GeckoEngineSession.geckoPermissions = geckoPermissions
             if (url == null) {
                 return // ¯\_(ツ)_/¯
             }
@@ -476,10 +471,8 @@ class GeckoEngineSession(
             initialLoad = false
             initialLoadRequest = null
 
-            isIgnoredForTrackingProtection { ignored ->
-                notifyObservers {
-                    onExcludedOnTrackingProtectionChange(ignored)
-                }
+            notifyObservers {
+                onExcludedOnTrackingProtectionChange(isIgnoredForTrackingProtection())
             }
             notifyObservers { onLocationChange(url) }
         }
@@ -692,42 +685,42 @@ class GeckoEngineSession(
                 return GeckoResult.fromValue(false)
             }
 
+            val delegate = settings.historyTrackingDelegate ?: return GeckoResult.fromValue(false)
+
+            // Check if the delegate wants this type of url.
+            if (!delegate.shouldStoreUri(url)) {
+                return GeckoResult.fromValue(false)
+            }
+
             val isReload = lastVisitedURL?.let { it == url } ?: false
 
-            val visitType = if (isReload) {
-                VisitType.RELOAD
-            } else {
-                // Note the difference between `VISIT_REDIRECT_PERMANENT`,
-                // `VISIT_REDIRECT_TEMPORARY`, `VISIT_REDIRECT_SOURCE`, and
-                // `VISIT_REDIRECT_SOURCE_PERMANENT`.
-                //
-                // The former two indicate if the visited page is the *target*
-                // of a redirect; that is, another page redirected to it.
-                //
-                // The latter two indicate if the visited page is the *source*
-                // of a redirect: it's redirecting to another page, because the
-                // server returned an HTTP 3xy status code.
-                if (flags and GeckoSession.HistoryDelegate.VISIT_REDIRECT_PERMANENT != 0) {
+            // Note the difference between `VISIT_REDIRECT_PERMANENT`,
+            // `VISIT_REDIRECT_TEMPORARY`, `VISIT_REDIRECT_SOURCE`, and
+            // `VISIT_REDIRECT_SOURCE_PERMANENT`.
+            //
+            // The former two indicate if the visited page is the *target*
+            // of a redirect; that is, another page redirected to it.
+            //
+            // The latter two indicate if the visited page is the *source*
+            // of a redirect: it's redirecting to another page, because the
+            // server returned an HTTP 3xy status code.
+            //
+            // So, we mark the **source** redirects as actual redirects, while treating **target**
+            // redirects as normal visits.
+            val visitType = when {
+                isReload -> VisitType.RELOAD
+                flags and GeckoSession.HistoryDelegate.VISIT_REDIRECT_SOURCE_PERMANENT != 0 ->
                     VisitType.REDIRECT_PERMANENT
-                } else if (flags and GeckoSession.HistoryDelegate.VISIT_REDIRECT_TEMPORARY != 0) {
+                flags and GeckoSession.HistoryDelegate.VISIT_REDIRECT_SOURCE != 0 ->
                     VisitType.REDIRECT_TEMPORARY
-                } else {
-                    VisitType.LINK
-                }
+                else -> VisitType.LINK
             }
             val redirectSource = when {
                 flags and GeckoSession.HistoryDelegate.VISIT_REDIRECT_SOURCE_PERMANENT != 0 ->
                     RedirectSource.PERMANENT
                 flags and GeckoSession.HistoryDelegate.VISIT_REDIRECT_SOURCE != 0 ->
                     RedirectSource.TEMPORARY
-                else -> RedirectSource.NOT_A_SOURCE
-            }
-
-            val delegate = settings.historyTrackingDelegate ?: return GeckoResult.fromValue(false)
-
-            // Check if the delegate wants this type of url.
-            if (!delegate.shouldStoreUri(url)) {
-                return GeckoResult.fromValue(false)
+                else -> null
             }
 
             return launchGeckoResult {
@@ -769,7 +762,7 @@ class GeckoEngineSession(
         }
     }
 
-    @Suppress("ComplexMethod")
+    @Suppress("ComplexMethod", "NestedBlockDepth")
     internal fun createContentDelegate() = object : GeckoSession.ContentDelegate {
         override fun onFirstComposite(session: GeckoSession) = Unit
 
@@ -860,12 +853,14 @@ class GeckoEngineSession(
             if (!privateMode) {
                 currentUrl?.let { url ->
                     settings.historyTrackingDelegate?.let { delegate ->
-                        // NB: There's no guarantee that the title change will be processed by the
-                        // delegate before the session is closed (and the corresponding coroutine
-                        // job is cancelled). Observers will always be notified of the title
-                        // change though.
-                        launch(coroutineContext) {
-                            delegate.onTitleChanged(url, title ?: "")
+                        if (delegate.shouldStoreUri(url)) {
+                            // NB: There's no guarantee that the title change will be processed by the
+                            // delegate before the session is closed (and the corresponding coroutine
+                            // job is cancelled). Observers will always be notified of the title
+                            // change though.
+                            launch(coroutineContext) {
+                                delegate.onTitleChanged(url, title ?: "")
+                            }
                         }
                     }
                 }
@@ -877,8 +872,10 @@ class GeckoEngineSession(
             if (!privateMode) {
                 currentUrl?.let { url ->
                     settings.historyTrackingDelegate?.let { delegate ->
-                        launch(coroutineContext) {
-                            delegate.onPreviewImageChange(url, previewImageUrl)
+                        if (delegate.shouldStoreUri(url)) {
+                            launch(coroutineContext) {
+                                delegate.onPreviewImageChange(url, previewImageUrl)
+                            }
                         }
                     }
                 }
@@ -1148,6 +1145,7 @@ class GeckoEngineSession(
                 WebRequestError.ERROR_SAFEBROWSING_UNWANTED_URI -> ErrorType.ERROR_SAFEBROWSING_UNWANTED_URI
                 WebRequestError.ERROR_SAFEBROWSING_HARMFUL_URI -> ErrorType.ERROR_SAFEBROWSING_HARMFUL_URI
                 WebRequestError.ERROR_SAFEBROWSING_PHISHING_URI -> ErrorType.ERROR_SAFEBROWSING_PHISHING_URI
+                WebRequestError.ERROR_HTTPS_ONLY -> ErrorType.ERROR_HTTPS_ONLY
                 else -> ErrorType.UNKNOWN
             }
     }

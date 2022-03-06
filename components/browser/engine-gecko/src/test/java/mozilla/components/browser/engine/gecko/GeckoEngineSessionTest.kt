@@ -12,6 +12,8 @@ import android.view.WindowManager
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runBlockingTest
+import mozilla.components.browser.engine.gecko.ext.geckoTrackingProtectionPermission
+import mozilla.components.browser.engine.gecko.ext.isExcludedForTrackingProtection
 import mozilla.components.browser.engine.gecko.permission.geckoContentPermission
 import mozilla.components.browser.errorpages.ErrorType
 import mozilla.components.concept.engine.DefaultSettings
@@ -68,7 +70,6 @@ import org.mockito.Mockito.verify
 import org.mockito.Mockito.verifyNoInteractions
 import org.mozilla.geckoview.AllowOrDeny
 import org.mozilla.geckoview.ContentBlocking
-import org.mozilla.geckoview.ContentBlockingController
 import org.mozilla.geckoview.GeckoResult
 import org.mozilla.geckoview.GeckoRuntime
 import org.mozilla.geckoview.GeckoSession
@@ -76,6 +77,10 @@ import org.mozilla.geckoview.GeckoSession.ContentDelegate.ContextElement.TYPE_AU
 import org.mozilla.geckoview.GeckoSession.ContentDelegate.ContextElement.TYPE_IMAGE
 import org.mozilla.geckoview.GeckoSession.ContentDelegate.ContextElement.TYPE_NONE
 import org.mozilla.geckoview.GeckoSession.ContentDelegate.ContextElement.TYPE_VIDEO
+import org.mozilla.geckoview.GeckoSession.PermissionDelegate.ContentPermission.VALUE_ALLOW
+import org.mozilla.geckoview.GeckoSession.PermissionDelegate.ContentPermission.VALUE_DENY
+import org.mozilla.geckoview.GeckoSession.PermissionDelegate.PERMISSION_STORAGE_ACCESS
+import org.mozilla.geckoview.GeckoSession.PermissionDelegate.PERMISSION_TRACKING
 import org.mozilla.geckoview.GeckoSession.ProgressDelegate.SecurityInformation
 import org.mozilla.geckoview.GeckoSessionSettings
 import org.mozilla.geckoview.SessionFinder
@@ -159,34 +164,52 @@ class GeckoEngineSessionTest {
     }
 
     @Test
-    @Suppress("DEPRECATION")
-    // The deprecation will be addressed on
-    // https://github.com/mozilla-mobile/android-components/issues/11101
     fun isIgnoredForTrackingProtection() {
-        val mockedContentBlockingController = mock<ContentBlockingController>()
-        var geckoResult = GeckoResult<Boolean?>()
         val session = GeckoEngineSession(runtime, geckoSessionProvider = geckoSessionProvider)
-        var wasExecuted = false
 
-        whenever(runtime.contentBlockingController).thenReturn(mockedContentBlockingController)
-        whenever(mockedContentBlockingController.checkException(any())).thenReturn(geckoResult)
+        session.geckoPermissions =
+            listOf(geckoContentPermission(type = PERMISSION_TRACKING, value = VALUE_ALLOW))
 
-        session.isIgnoredForTrackingProtection {
-            wasExecuted = it
-        }
+        var ignored = session.isIgnoredForTrackingProtection()
 
-        geckoResult.complete(true)
-        assertTrue(wasExecuted)
+        assertTrue(ignored)
 
-        geckoResult = GeckoResult()
-        whenever(mockedContentBlockingController.checkException(any())).thenReturn(geckoResult)
+        session.geckoPermissions =
+            listOf(geckoContentPermission(type = PERMISSION_TRACKING, value = VALUE_DENY))
 
-        session.isIgnoredForTrackingProtection {
-            wasExecuted = it
-        }
+        ignored = session.isIgnoredForTrackingProtection()
 
-        geckoResult.complete(null)
-        assertFalse(wasExecuted)
+        assertFalse(ignored)
+    }
+
+    @Test
+    fun `WHEN calling isExcludedForTrackingProtection THEN indicate if it is excluded for tracking protection`() {
+        val excludedPermission = geckoContentPermission(type = PERMISSION_TRACKING, value = VALUE_ALLOW)
+
+        assertTrue(excludedPermission.isExcludedForTrackingProtection)
+
+        val noExcludedPermission = geckoContentPermission(type = PERMISSION_TRACKING, value = VALUE_DENY)
+
+        assertFalse(noExcludedPermission.isExcludedForTrackingProtection)
+
+        val storagePermission = geckoContentPermission(type = PERMISSION_STORAGE_ACCESS, value = VALUE_DENY)
+
+        assertFalse(storagePermission.isExcludedForTrackingProtection)
+    }
+
+    @Test
+    fun `WHEN calling geckoTrackingProtectionPermission on a session THEN provide the gecko tracking protection permission`() {
+        val session = GeckoEngineSession(runtime, geckoSessionProvider = geckoSessionProvider)
+        val trackingProtectionPermission = geckoContentPermission(type = PERMISSION_TRACKING, value = VALUE_ALLOW)
+        val storagePermission = geckoContentPermission(type = PERMISSION_STORAGE_ACCESS, value = VALUE_DENY)
+
+        session.geckoPermissions = listOf(trackingProtectionPermission, storagePermission)
+
+        assertEquals(session.geckoTrackingProtectionPermission, trackingProtectionPermission)
+
+        session.geckoPermissions = listOf(storagePermission)
+
+        assertNull(session.geckoTrackingProtectionPermission)
     }
 
     @Test
@@ -240,12 +263,7 @@ class GeckoEngineSessionTest {
     }
 
     @Test
-    @Suppress("DEPRECATION")
-    // The deprecation will be addressed on
-    // https://github.com/mozilla-mobile/android-components/issues/11101
     fun navigationDelegateNotifiesObservers() {
-        val geckoResult = GeckoResult<Boolean?>()
-        val mockedContentBlockingController = mock<ContentBlockingController>()
         val engineSession = GeckoEngineSession(runtime, geckoSessionProvider = geckoSessionProvider)
 
         var observedUrl = ""
@@ -259,16 +277,10 @@ class GeckoEngineSessionTest {
             }
         })
 
-        whenever(runtime.contentBlockingController).thenReturn(mockedContentBlockingController)
-        whenever(mockedContentBlockingController.checkException(any())).thenReturn(geckoResult)
-
         captureDelegates()
-
-        geckoResult.complete(true)
 
         navigationDelegate.value.onLocationChange(mock(), "http://mozilla.org", emptyList())
         assertEquals("http://mozilla.org", observedUrl)
-        verify(mockedContentBlockingController).checkException(any())
 
         navigationDelegate.value.onCanGoBack(mock(), true)
         assertEquals(true, observedCanGoBack)
@@ -277,8 +289,6 @@ class GeckoEngineSessionTest {
         assertEquals(true, observedCanGoForward)
     }
 
-    // This will be addressed on https://github.com/mozilla-mobile/android-components/issues/8312
-    @Suppress("deprecation")
     @Test
     fun contentDelegateNotifiesObserverAboutDownloads() {
         val engineSession = GeckoEngineSession(
@@ -547,7 +557,7 @@ class GeckoEngineSessionTest {
 
         engineSession.goBack()
 
-        verify(geckoSession).goBack()
+        verify(geckoSession).goBack(true)
     }
 
     @Test
@@ -559,7 +569,7 @@ class GeckoEngineSessionTest {
 
         engineSession.goForward()
 
-        verify(geckoSession).goForward()
+        verify(geckoSession).goForward(true)
     }
 
     @Test
@@ -657,12 +667,7 @@ class GeckoEngineSessionTest {
     }
 
     @Test
-    @Suppress("DEPRECATION")
-    // The deprecation will be addressed on
-    // https://github.com/mozilla-mobile/android-components/issues/11101
     fun navigationDelegateIgnoresInitialLoadOfAboutBlank() {
-        val geckoResult = GeckoResult<Boolean?>()
-        val mockedContentBlockingController = mock<ContentBlockingController>()
         val engineSession = GeckoEngineSession(runtime, geckoSessionProvider = geckoSessionProvider)
 
         var observedUrl = ""
@@ -670,12 +675,7 @@ class GeckoEngineSessionTest {
             override fun onLocationChange(url: String) { observedUrl = url }
         })
 
-        whenever(runtime.contentBlockingController).thenReturn(mockedContentBlockingController)
-        whenever(mockedContentBlockingController.checkException(any())).thenReturn(geckoResult)
-
         captureDelegates()
-
-        geckoResult.complete(true)
 
         navigationDelegate.value.onLocationChange(mock(), "about:blank", emptyList())
         assertEquals("", observedUrl)
@@ -685,22 +685,13 @@ class GeckoEngineSessionTest {
 
         navigationDelegate.value.onLocationChange(mock(), "https://www.mozilla.org", emptyList())
         assertEquals("https://www.mozilla.org", observedUrl)
-        verify(mockedContentBlockingController).checkException(any())
 
         navigationDelegate.value.onLocationChange(mock(), "about:blank", emptyList())
         assertEquals("about:blank", observedUrl)
     }
 
     @Test
-    @Suppress("DEPRECATION")
-    // The deprecation will be addressed on
-    // https://github.com/mozilla-mobile/android-components/issues/11101
     fun `onLoadRequest will reset initial load flag on process switch to ignore about blank loads`() {
-        val geckoResult = GeckoResult<Boolean?>()
-        val mockedContentBlockingController = mock<ContentBlockingController>()
-        whenever(runtime.contentBlockingController).thenReturn(mockedContentBlockingController)
-        whenever(mockedContentBlockingController.checkException(any())).thenReturn(geckoResult)
-
         val session = GeckoEngineSession(runtime, geckoSessionProvider = geckoSessionProvider)
         captureDelegates()
         assertTrue(session.initialLoad)
@@ -743,15 +734,9 @@ class GeckoEngineSessionTest {
     }
 
     @Test
-    @Suppress("DEPRECATION")
-    // The deprecation will be addressed on
-    // https://github.com/mozilla-mobile/android-components/issues/11101
     fun `keeps track of current url via onLocationChange events`() {
-        val mockedContentBlockingController = mock<ContentBlockingController>()
         val engineSession = GeckoEngineSession(runtime, geckoSessionProvider = geckoSessionProvider)
         val geckoResult = GeckoResult<Boolean?>()
-        whenever(runtime.contentBlockingController).thenReturn(mockedContentBlockingController)
-        whenever(mockedContentBlockingController.checkException(any())).thenReturn(geckoResult)
 
         captureDelegates()
         geckoResult.complete(true)
@@ -765,27 +750,42 @@ class GeckoEngineSessionTest {
     }
 
     @Test
-    @Suppress("DEPRECATION")
-    // The deprecation will be addressed on
-    // https://github.com/mozilla-mobile/android-components/issues/11101
+    fun `WHEN onLocationChange is called THEN geckoPermissions is assigned`() {
+        val engineSession = GeckoEngineSession(runtime, geckoSessionProvider = geckoSessionProvider)
+
+        captureDelegates()
+
+        navigationDelegate.value.onLocationChange(geckoSession, "https://www.mozilla.org", listOf(mock()))
+
+        assertTrue(engineSession.geckoPermissions.isNotEmpty())
+    }
+
+    @Test
+    fun `WHEN onLocationChange is called with null URL THEN geckoPermissions is assigned`() {
+        val engineSession = GeckoEngineSession(runtime, geckoSessionProvider = geckoSessionProvider)
+
+        captureDelegates()
+
+        navigationDelegate.value.onLocationChange(geckoSession, null, listOf(mock()))
+
+        assertTrue(engineSession.geckoPermissions.isNotEmpty())
+    }
+
+    @Test
     fun `notifies configured history delegate of title changes`() = runBlockingTest {
-        val mockedContentBlockingController = mock<ContentBlockingController>()
         val engineSession = GeckoEngineSession(
             runtime, geckoSessionProvider = geckoSessionProvider,
             context = coroutineContext
         )
         val historyTrackingDelegate: HistoryTrackingDelegate = mock()
-        val geckoResult = GeckoResult<Boolean?>()
-        whenever(runtime.contentBlockingController).thenReturn(mockedContentBlockingController)
-        whenever(mockedContentBlockingController.checkException(any())).thenReturn(geckoResult)
 
         captureDelegates()
-        geckoResult.complete(true)
 
         // Nothing breaks if history delegate isn't configured.
         contentDelegate.value.onTitleChange(geckoSession, "Hello World!")
 
         engineSession.settings.historyTrackingDelegate = historyTrackingDelegate
+        whenever(historyTrackingDelegate.shouldStoreUri(eq("https://www.mozilla.com"))).thenReturn(true)
 
         contentDelegate.value.onTitleChange(geckoSession, "Hello World!")
         verify(historyTrackingDelegate, never()).onTitleChanged(anyString(), anyString())
@@ -795,6 +795,7 @@ class GeckoEngineSessionTest {
 
         contentDelegate.value.onTitleChange(geckoSession, "Hello World!")
         verify(historyTrackingDelegate).onTitleChanged(eq("https://www.mozilla.com"), eq("Hello World!"))
+        verify(historyTrackingDelegate).shouldStoreUri(eq("https://www.mozilla.com"))
     }
 
     @Test
@@ -830,19 +831,13 @@ class GeckoEngineSessionTest {
     }
 
     @Test
-    @Suppress("DEPRECATION")
-    // The deprecation will be addressed on
-    // https://github.com/mozilla-mobile/android-components/issues/11101
     fun `notifies configured history delegate of preview image URL changes`() = runBlockingTest {
-        val mockedContentBlockingController = mock<ContentBlockingController>()
         val engineSession = GeckoEngineSession(
             runtime, geckoSessionProvider = geckoSessionProvider,
             context = coroutineContext
         )
         val historyTrackingDelegate: HistoryTrackingDelegate = mock()
         val geckoResult = GeckoResult<Boolean?>()
-        whenever(runtime.contentBlockingController).thenReturn(mockedContentBlockingController)
-        whenever(mockedContentBlockingController.checkException(any())).thenReturn(geckoResult)
 
         captureDelegates()
         geckoResult.complete(true)
@@ -853,6 +848,7 @@ class GeckoEngineSessionTest {
         contentDelegate.value.onPreviewImage(geckoSession, previewImageUrl)
 
         engineSession.settings.historyTrackingDelegate = historyTrackingDelegate
+        whenever(historyTrackingDelegate.shouldStoreUri(eq("https://www.mozilla.com"))).thenReturn(true)
 
         contentDelegate.value.onPreviewImage(geckoSession, previewImageUrl)
         verify(historyTrackingDelegate, never()).onPreviewImageChange(anyString(), anyString())
@@ -862,6 +858,7 @@ class GeckoEngineSessionTest {
 
         contentDelegate.value.onPreviewImage(geckoSession, previewImageUrl)
         verify(historyTrackingDelegate).onPreviewImageChange(eq("https://www.mozilla.com"), eq(previewImageUrl))
+        verify(historyTrackingDelegate).shouldStoreUri(eq("https://www.mozilla.com"))
     }
 
     @Test
@@ -897,28 +894,6 @@ class GeckoEngineSessionTest {
     }
 
     @Test
-    fun `does not notify configured history delegate for redirects`() = runBlockingTest {
-        val engineSession = GeckoEngineSession(
-            mock(),
-            geckoSessionProvider = geckoSessionProvider,
-            context = coroutineContext
-        )
-        val historyTrackingDelegate: HistoryTrackingDelegate = mock()
-
-        captureDelegates()
-
-        // Nothing breaks if history delegate isn't configured.
-        historyDelegate.value.onVisited(geckoSession, "https://www.mozilla.com", null, GeckoSession.HistoryDelegate.VISIT_TOP_LEVEL)
-        engineSession.job.children.forEach { it.join() }
-
-        engineSession.settings.historyTrackingDelegate = historyTrackingDelegate
-
-        historyDelegate.value.onVisited(geckoSession, "https://www.mozilla.com", null, GeckoSession.HistoryDelegate.VISIT_REDIRECT_TEMPORARY)
-        engineSession.job.children.forEach { it.join() }
-        verify(historyTrackingDelegate, never()).onVisited(anyString(), any())
-    }
-
-    @Test
     fun `does not notify configured history delegate for top-level visits to error pages`() = runBlockingTest {
         val engineSession = GeckoEngineSession(
             mock(),
@@ -930,8 +905,13 @@ class GeckoEngineSessionTest {
         captureDelegates()
 
         engineSession.settings.historyTrackingDelegate = historyTrackingDelegate
+        whenever(historyTrackingDelegate.shouldStoreUri(any())).thenReturn(true)
 
-        historyDelegate.value.onVisited(geckoSession, "about:neterror", null, GeckoSession.HistoryDelegate.VISIT_TOP_LEVEL or GeckoSession.HistoryDelegate.VISIT_UNRECOVERABLE_ERROR)
+        historyDelegate.value.onVisited(
+            geckoSession, "about:neterror", null,
+            GeckoSession.HistoryDelegate.VISIT_TOP_LEVEL
+                or GeckoSession.HistoryDelegate.VISIT_UNRECOVERABLE_ERROR
+        )
         engineSession.job.children.forEach { it.join() }
         verify(historyTrackingDelegate, never()).onVisited(anyString(), any())
     }
@@ -952,7 +932,7 @@ class GeckoEngineSessionTest {
 
         historyDelegate.value.onVisited(geckoSession, "https://www.mozilla.com", null, GeckoSession.HistoryDelegate.VISIT_TOP_LEVEL)
         engineSession.job.children.forEach { it.join() }
-        verify(historyTrackingDelegate).onVisited(eq("https://www.mozilla.com"), eq(PageVisit(VisitType.LINK, RedirectSource.NOT_A_SOURCE)))
+        verify(historyTrackingDelegate).onVisited(eq("https://www.mozilla.com"), eq(PageVisit(VisitType.LINK)))
     }
 
     @Test
@@ -971,7 +951,7 @@ class GeckoEngineSessionTest {
 
         historyDelegate.value.onVisited(geckoSession, "https://www.mozilla.com", "https://www.mozilla.com", GeckoSession.HistoryDelegate.VISIT_TOP_LEVEL)
         engineSession.job.children.forEach { it.join() }
-        verify(historyTrackingDelegate).onVisited(eq("https://www.mozilla.com"), eq(PageVisit(VisitType.RELOAD, RedirectSource.NOT_A_SOURCE)))
+        verify(historyTrackingDelegate).onVisited(eq("https://www.mozilla.com"), eq(PageVisit(VisitType.RELOAD)))
     }
 
     @Test
@@ -993,7 +973,7 @@ class GeckoEngineSessionTest {
 
         engineSession.job.children.forEach { it.join() }
         verify(historyTrackingDelegate).shouldStoreUri("https://www.mozilla.com/allowed")
-        verify(historyTrackingDelegate).onVisited(eq("https://www.mozilla.com/allowed"), eq(PageVisit(VisitType.LINK, RedirectSource.NOT_A_SOURCE)))
+        verify(historyTrackingDelegate).onVisited(eq("https://www.mozilla.com/allowed"), eq(PageVisit(VisitType.LINK)))
 
         historyDelegate.value.onVisited(geckoSession, "https://www.mozilla.com/not-allowed", null, GeckoSession.HistoryDelegate.VISIT_TOP_LEVEL)
 
@@ -1026,7 +1006,7 @@ class GeckoEngineSessionTest {
         )
 
         engineSession.job.children.forEach { it.join() }
-        verify(historyTrackingDelegate).onVisited(eq("https://www.mozilla.com/tempredirect"), eq(PageVisit(VisitType.LINK, RedirectSource.TEMPORARY)))
+        verify(historyTrackingDelegate).onVisited(eq("https://www.mozilla.com/tempredirect"), eq(PageVisit(VisitType.REDIRECT_TEMPORARY, RedirectSource.TEMPORARY)))
 
         historyDelegate.value.onVisited(
             geckoSession,
@@ -1037,7 +1017,7 @@ class GeckoEngineSessionTest {
         )
 
         engineSession.job.children.forEach { it.join() }
-        verify(historyTrackingDelegate).onVisited(eq("https://www.mozilla.com/permredirect"), eq(PageVisit(VisitType.LINK, RedirectSource.PERMANENT)))
+        verify(historyTrackingDelegate).onVisited(eq("https://www.mozilla.com/permredirect"), eq(PageVisit(VisitType.REDIRECT_PERMANENT, RedirectSource.PERMANENT)))
 
         // Visits below are targets of redirects, not redirects themselves.
         // Check that they're mapped to "link".
@@ -1050,7 +1030,7 @@ class GeckoEngineSessionTest {
         )
 
         engineSession.job.children.forEach { it.join() }
-        verify(historyTrackingDelegate).onVisited(eq("https://www.mozilla.com/targettemp"), eq(PageVisit(VisitType.REDIRECT_TEMPORARY, RedirectSource.NOT_A_SOURCE)))
+        verify(historyTrackingDelegate).onVisited(eq("https://www.mozilla.com/targettemp"), eq(PageVisit(VisitType.LINK)))
 
         historyDelegate.value.onVisited(
             geckoSession,
@@ -1061,7 +1041,7 @@ class GeckoEngineSessionTest {
         )
 
         engineSession.job.children.forEach { it.join() }
-        verify(historyTrackingDelegate).onVisited(eq("https://www.mozilla.com/targetperm"), eq(PageVisit(VisitType.REDIRECT_PERMANENT, RedirectSource.NOT_A_SOURCE)))
+        verify(historyTrackingDelegate).onVisited(eq("https://www.mozilla.com/targetperm"), eq(PageVisit(VisitType.LINK)))
     }
 
     @Test
@@ -1967,6 +1947,10 @@ class GeckoEngineSessionTest {
         assertEquals(
             ErrorType.UNKNOWN,
             GeckoEngineSession.geckoErrorToErrorType(-500)
+        )
+        assertEquals(
+            ErrorType.ERROR_HTTPS_ONLY,
+            GeckoEngineSession.geckoErrorToErrorType(WebRequestError.ERROR_HTTPS_ONLY)
         )
     }
 
@@ -3037,14 +3021,14 @@ class GeckoEngineSessionTest {
 
         // goBack()
         engineSession.goBack()
-        verify(geckoSession).goBack()
+        verify(geckoSession).goBack(true)
         fakePageLoad(false)
 
         fakePageLoad(true)
 
         // goForward()
         engineSession.goForward()
-        verify(geckoSession).goForward()
+        verify(geckoSession).goForward(true)
         fakePageLoad(false)
 
         fakePageLoad(true)

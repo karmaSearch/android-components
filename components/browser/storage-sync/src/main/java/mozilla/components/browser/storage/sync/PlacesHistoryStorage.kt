@@ -5,6 +5,7 @@
 package mozilla.components.browser.storage.sync
 
 import android.content.Context
+import android.net.Uri
 import kotlinx.coroutines.withContext
 import mozilla.appservices.places.PlacesApi
 import mozilla.appservices.places.PlacesException
@@ -47,20 +48,18 @@ open class PlacesHistoryStorage(
     override val logger = Logger("PlacesHistoryStorage")
 
     override suspend fun recordVisit(uri: String, visit: PageVisit) {
+        if (!canAddUri(uri)) {
+            logger.debug("Not recording visit (canAddUri=false) for: $uri")
+            return
+        }
         withContext(writeScope.coroutineContext) {
             handlePlacesExceptions("recordVisit") {
                 places.writer().noteObservation(
                     VisitObservation(
                         uri,
                         visitType = visit.visitType.into(),
-                        isRedirectSource = when (visit.redirectSource) {
-                            RedirectSource.PERMANENT, RedirectSource.TEMPORARY -> true
-                            RedirectSource.NOT_A_SOURCE -> false
-                        },
-                        isPermanentRedirectSource = when (visit.redirectSource) {
-                            RedirectSource.PERMANENT -> true
-                            RedirectSource.TEMPORARY, RedirectSource.NOT_A_SOURCE -> false
-                        }
+                        isRedirectSource = visit.redirectSource != null,
+                        isPermanentRedirectSource = visit.redirectSource == RedirectSource.PERMANENT
                     )
                 )
             }
@@ -68,6 +67,10 @@ open class PlacesHistoryStorage(
     }
 
     override suspend fun recordObservation(uri: String, observation: PageObservation) {
+        if (!canAddUri(uri)) {
+            logger.debug("Not recording observation (canAddUri=false) for: $uri")
+            return
+        }
         // NB: visitType 'UPDATE_PLACE' means "record meta information about this URL".
         withContext(writeScope.coroutineContext) {
             // Ignore exceptions related to uris. This means we may drop some of the data on the floor
@@ -232,18 +235,8 @@ open class PlacesHistoryStorage(
         return places.importVisitsFromFennec(dbPath)
     }
 
-    /**
-     * This should be removed. See: https://github.com/mozilla/application-services/issues/1877
-     *
-     * @return raw internal handle that could be used for referencing underlying [PlacesApi]. Use it with SyncManager.
-     */
-    override fun getHandle(): Long {
-        return places.getHandle()
-    }
-
     override fun registerWithSyncManager() {
-        // See https://github.com/mozilla-mobile/android-components/issues/10128
-        throw NotImplementedError("Use getHandle instead")
+        return places.registerWithSyncManager()
     }
 
     override suspend fun getLatestHistoryMetadataForUrl(url: String): HistoryMetadata? {
@@ -274,13 +267,19 @@ open class PlacesHistoryStorage(
         weights: HistoryHighlightWeights,
         limit: Int
     ): List<HistoryHighlight> {
-        return places.reader().getHighlights(weights.into(), limit).intoHighlights()
+        return handlePlacesExceptions("getHistoryHighlights", default = emptyList()) {
+            places.reader().getHighlights(weights.into(), limit).intoHighlights()
+        }
     }
 
     override suspend fun noteHistoryMetadataObservation(
         key: HistoryMetadataKey,
         observation: HistoryMetadataObservation
     ) {
+        if (!canAddUri(key.url)) {
+            logger.debug("Not recording metadata (canAddUri=false) for: ${key.url}")
+            return
+        }
         withContext(writeScope.coroutineContext) {
             handlePlacesExceptions("noteHistoryMetadataObservation") {
                 places.writer().noteHistoryMetadataObservation(observation.into(key))
@@ -305,14 +304,28 @@ open class PlacesHistoryStorage(
     }
 
     override suspend fun deleteHistoryMetadata(searchTerm: String) {
+        deleteHistoryMetadata {
+            // NB: searchTerms are always lower-case in the database.
+            it.searchTerm == searchTerm.lowercase()
+        }
+    }
+
+    override suspend fun deleteHistoryMetadataForUrl(url: String) {
+        deleteHistoryMetadata {
+            it.url == url
+        }
+    }
+
+    private suspend fun deleteHistoryMetadata(
+        predicate: (mozilla.appservices.places.uniffi.HistoryMetadata) -> Boolean
+    ) {
         // Ideally, we want this to live in A-S as a simple DELETE statement.
         // As-is, this isn't an atomic operation. For how we're using these data, both lack of
         // atomicity and a performance penalty is acceptable for now.
         withContext(writeScope.coroutineContext) {
-            handlePlacesExceptions("deleteHistoryMetadataSearchGroup") {
+            handlePlacesExceptions("deleteHistoryMetadata") {
                 places.reader().getHistoryMetadataSince(Long.MIN_VALUE)
-                    // NB: searchTerms are always lower-case in the database.
-                    .filter { it.searchTerm == searchTerm.lowercase() }
+                    .filter(predicate)
                     .forEach {
                         places.writer().deleteHistoryMetadata(
                             HistoryMetadataKey(
@@ -324,5 +337,32 @@ open class PlacesHistoryStorage(
                     }
             }
         }
+    }
+
+    @SuppressWarnings("ReturnCount")
+    override fun canAddUri(uri: String): Boolean {
+        // Filter out unwanted URIs, such as "chrome:", "about:", etc.
+        // Ported from nsAndroidHistory::CanAddURI
+        // See https://dxr.mozilla.org/mozilla-central/source/mobile/android/components/build/nsAndroidHistory.cpp#326
+        val parsedUri = Uri.parse(uri)
+        val scheme = parsedUri.normalizeScheme().scheme ?: return false
+
+        // Short-circuit most common schemes.
+        if (scheme == "http" || scheme == "https") {
+            return true
+        }
+
+        // Allow about about:reader uris. They are of the form:
+        // about:reader?url=http://some.interesting.page/to/read.html
+        if (uri.startsWith("about:reader")) {
+            return true
+        }
+
+        val schemasToIgnore = listOf(
+            "about", "imap", "news", "mailbox", "moz-anno", "moz-extension",
+            "view-source", "chrome", "resource", "data", "javascript", "blob"
+        )
+
+        return !schemasToIgnore.contains(scheme)
     }
 }

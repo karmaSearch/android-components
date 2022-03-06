@@ -24,6 +24,7 @@ import mozilla.components.concept.engine.content.blocking.TrackerLog
 import mozilla.components.concept.engine.content.blocking.TrackingProtectionException
 import mozilla.components.concept.engine.content.blocking.TrackingProtectionExceptionStorage
 import mozilla.components.support.test.any
+import mozilla.components.support.test.eq
 import mozilla.components.support.test.ext.joinBlocking
 import mozilla.components.support.test.libstate.ext.waitUntilIdle
 import mozilla.components.support.test.mock
@@ -152,7 +153,15 @@ class TrackingProtectionUseCasesTest {
 
         useCases.addException("A")
 
-        verify(exceptionStore, never()).add(any())
+        verify(exceptionStore, never()).add(any(), eq(false))
+    }
+
+    @Test
+    fun `GIVEN a persistent in private mode exception WHEN adding THEN add the exception and indicate that it is persistent`() {
+        val tabId = "A"
+        useCases.addException(tabId, persistInPrivateMode = true)
+
+        verify(exceptionStore).add(engineSession, true)
     }
 
     @Test
@@ -222,7 +231,7 @@ class TrackingProtectionUseCasesTest {
     fun `removeAll exceptions`() {
         useCases.removeAllExceptions()
 
-        verify(exceptionStore).removeAll(any())
+        verify(exceptionStore).removeAll(any(), any())
     }
 
     @Test
