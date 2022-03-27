@@ -24,14 +24,13 @@ internal class LearnAndActEndpointRaw internal constructor(
     @WorkerThread // synchronous request.
     private fun makeRequest(): String? {
         val locale = Locale.getDefault().toString()
-        val jsonFile = if (locale.contains("fr")) "learnandact_fr.json" else "learnandact_en.json"
+        val jsonFile = if (locale.contains("fr")) "learn-and-act-fr.json" else "learn-and-act-en.json"
         val request = Request(pocketEndpointUrl+jsonFile)
         return client.fetchBodyOrNull(request)
     }
 
     companion object {
-        private const val pocketEndpointUrl = "https://about.karmasearch.org/i18n/iOS_app/"
-
+        private const val pocketEndpointUrl = "https://storage.googleapis.com/learn-and-act-and-images.appspot.com/L%26A/json/"
         /**
          * Returns a new instance of [PocketEndpointRaw].
          *

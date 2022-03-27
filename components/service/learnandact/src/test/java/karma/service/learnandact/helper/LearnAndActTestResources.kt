@@ -1,6 +1,5 @@
 package karma.service.learnandact.helper
 
-import karma.service.learnandact.LearnAndAct
 import karma.service.learnandact.api.LearnAndActApi
 
 
@@ -8,37 +7,28 @@ import karma.service.learnandact.api.LearnAndActApi
  * Accessors to resources used in testing.
  */
 internal object LearnAndActTestResources {
-    val endointFiveStoriesResponse = this::class.java.classLoader!!.getResource(
+    val endointLearnAndActResponse = this::class.java.classLoader!!.getResource(
         "learnandact.json"
     )!!.readText()
 
     val apiExpectedLearnAndAct: List<LearnAndActApi> = listOf(
         LearnAndActApi(
-            blog_article_title = "New global biodiversity goals must take these key lessons into account",
-            blog_article_action_url = "https://theconversation.com/new-global-biodiversity-goals-must-take-these-key-lessons-into-account-151315",
-            blog_article_image = "/images/home/LearnAct1.webp",
-            blog_article_duration = "",
-            bloc_type = "learn",
-            blog_article_action = "Read more...",
-            blog_article_description = "A framework to help countries develop national strategies for the conservation and sustainable use of their natural resources is nearing completion."
+            title = "Save the Okavango River Basin from Oil Drilling",
+            link = "https://okavango.rewild.org/",
+            mobile_image = "https://storage.googleapis.com/learn-and-act-and-images.appspot.com/L&A/images/mobile/en/Save_Okavango_river.webp",
+            duration = "",
+            type = "Act",
+            action = "Sign the petition !",
+            description = "Sign an open letter to stop oil and gas drilling by Canadian company ReconAfrica in the Okavango River Basin. Share this action with others!"
         ),
         LearnAndActApi(
-            blog_article_title = "End the cage age for all the UK's farm animals",
-            blog_article_action_url = "https://action.ciwf.org.uk/page/83793/petition/1",
-            blog_article_image = "/images/home/LearnAct2.webp",
-            blog_article_duration = "",
-            bloc_type = "act",
-            blog_article_action = "Sign the petition!",
-            blog_article_description = "Caging animals causes immense suffering. Despite the obvious failings of this outdated technology, around 16 million farm animals are trapped in cages every year in the UK. blabahfdshfdsfdsdsfds",
-        ),
-        LearnAndActApi(
-            blog_article_title = "End the cage age for all the UK's farm animals",
-            blog_article_action_url = "https://action.ciwf.org.uk/page/83793/petition/1",
-            blog_article_image = "/images/home/LearnAct2.webp",
-            blog_article_duration = "7 minutes",
-            bloc_type = "act",
-            blog_article_action = "Sign the petition!",
-            blog_article_description = "Caging animals causes immense suffering. Despite the obvious failings of this outdated technology, around 16 million farm animals are trapped in cages every year in the UK. Caging animals causes immense suffering. Despite the obvious failings of this outdated technology, around 16 million farm animals are trapped in cages every year in the UK."
+            title = "Protect tropical forest and marine habitats",
+            link = "https://action.ifaw.org/page/79725/action/1",
+            mobile_image = "https://storage.googleapis.com/learn-and-act-and-images.appspot.com/L&A/images/mobile/en/Protect_marine_habitats.webp",
+            duration = "",
+            type = "Act",
+            action = "Sign the petition !",
+            description = "Sign the petition to push the United States government to help protect fragile ecosystems around the world.",
         )
     )
 }

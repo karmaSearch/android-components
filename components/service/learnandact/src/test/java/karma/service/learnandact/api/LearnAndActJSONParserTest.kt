@@ -25,13 +25,13 @@ class LearnAndActJSONParserTest {
     }
 
     @Test
-    fun `GIVEN PocketJSONParser WHEN parsing valid learnandact THEN LearnAndActAPI are returned`() {
+    fun `GIVEN LearnAndActJSONParser WHEN parsing valid learnandact THEN LearnAndActAPI are returned`() {
         val expected = LearnAndActTestResources.apiExpectedLearnAndAct
-        val JSON = LearnAndActTestResources.endointFiveStoriesResponse
+        val JSON = LearnAndActTestResources.endointLearnAndActResponse
         val actual = parser.jsonToLearnAndApi(JSON)
 
         Assert.assertNotNull(actual)
-        Assert.assertEquals(3, actual!!.size)
+        Assert.assertEquals(2, actual!!.size)
         Assert.assertEquals(expected, actual)
     }
 
