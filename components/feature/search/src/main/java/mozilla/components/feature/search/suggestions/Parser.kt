@@ -62,13 +62,9 @@ private fun buildQwantParser(): ResponseParser {
 
 private fun buildKarmaParser(): ResponseParser {
     return { input ->
-        JSONObject(input)
-            .getJSONArray("suggestionGroups")
-            .getJSONObject(0)
-            .getJSONArray("searchSuggestions")
+        JSONArray(input)
             .asSequence()
-            .map { it as? JSONObject }
-            .map { it?.getString("displayText") }
+            .map { it as? String }
             .filterNotNull()
             .toList()
     }
