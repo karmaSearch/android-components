@@ -5,6 +5,7 @@
 package mozilla.components.browser.engine.gecko.prompt
 
 import android.net.Uri
+import android.os.Looper.getMainLooper
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import mozilla.components.browser.engine.gecko.GeckoEngineSession
 import mozilla.components.browser.engine.gecko.ext.toAutocompleteCreditCard
@@ -32,6 +33,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.mockito.Mockito
 import org.mockito.Mockito.doReturn
 import org.mockito.Mockito.never
 import org.mockito.Mockito.spy
@@ -50,6 +52,7 @@ import org.mozilla.geckoview.GeckoSession.PromptDelegate.DateTimePrompt.Type.WEE
 import org.mozilla.geckoview.GeckoSession.PromptDelegate.FilePrompt.Capture.ANY
 import org.mozilla.geckoview.GeckoSession.PromptDelegate.FilePrompt.Capture.NONE
 import org.mozilla.geckoview.GeckoSession.PromptDelegate.FilePrompt.Capture.USER
+import org.robolectric.Shadows.shadowOf
 import java.io.FileInputStream
 import java.security.InvalidParameterException
 import java.util.Calendar
@@ -78,7 +81,7 @@ class GeckoPromptDelegateTest {
     @Test
     fun `onChoicePrompt called with CHOICE_TYPE_SINGLE must provide a SingleChoice PromptRequest`() {
         val mockSession = GeckoEngineSession(runtime)
-        var promptRequestSingleChoice: PromptRequest = MultipleChoice(arrayOf()) {}
+        var promptRequestSingleChoice: PromptRequest = MultipleChoice(arrayOf(), {}, {})
         var confirmWasCalled = false
         val gecko = GeckoPromptDelegate(mockSession)
         val geckoChoice = object : GeckoChoice() {}
@@ -105,18 +108,20 @@ class GeckoPromptDelegateTest {
         val request = promptRequestSingleChoice as SingleChoice
 
         request.onConfirm(request.choices.first())
+        shadowOf(getMainLooper()).idle()
         assertTrue(confirmWasCalled)
         whenever(geckoPrompt.isComplete).thenReturn(true)
 
         confirmWasCalled = false
         request.onConfirm(request.choices.first())
+        shadowOf(getMainLooper()).idle()
         assertFalse(confirmWasCalled)
     }
 
     @Test
     fun `onChoicePrompt called with CHOICE_TYPE_MULTIPLE must provide a MultipleChoice PromptRequest`() {
         val mockSession = GeckoEngineSession(runtime)
-        var promptRequestSingleChoice: PromptRequest = SingleChoice(arrayOf()) {}
+        var promptRequestSingleChoice: PromptRequest = SingleChoice(arrayOf(), {}, {})
         var confirmWasCalled = false
         val gecko = GeckoPromptDelegate(mockSession)
         val mockGeckoChoice = object : GeckoChoice() {}
@@ -142,18 +147,20 @@ class GeckoPromptDelegateTest {
         assertTrue(promptRequestSingleChoice is MultipleChoice)
 
         (promptRequestSingleChoice as MultipleChoice).onConfirm(arrayOf())
+        shadowOf(getMainLooper()).idle()
         assertTrue(confirmWasCalled)
         whenever(geckoPrompt.isComplete).thenReturn(true)
 
         confirmWasCalled = false
         (promptRequestSingleChoice as MultipleChoice).onConfirm(arrayOf())
+        shadowOf(getMainLooper()).idle()
         assertFalse(confirmWasCalled)
     }
 
     @Test
     fun `onChoicePrompt called with CHOICE_TYPE_MENU must provide a MenuChoice PromptRequest`() {
         val mockSession = GeckoEngineSession(runtime)
-        var promptRequestSingleChoice: PromptRequest = PromptRequest.MenuChoice(arrayOf()) {}
+        var promptRequestSingleChoice: PromptRequest = PromptRequest.MenuChoice(arrayOf(), {}, {})
         var confirmWasCalled = false
         val gecko = GeckoPromptDelegate(mockSession)
         val geckoChoice = object : GeckoChoice() {}
@@ -180,11 +187,13 @@ class GeckoPromptDelegateTest {
         val request = promptRequestSingleChoice as PromptRequest.MenuChoice
 
         request.onConfirm(request.choices.first())
+        shadowOf(getMainLooper()).idle()
         assertTrue(confirmWasCalled)
         whenever(geckoPrompt.isComplete).thenReturn(true)
 
         confirmWasCalled = false
         request.onConfirm(request.choices.first())
+        shadowOf(getMainLooper()).idle()
         assertFalse(confirmWasCalled)
     }
 
@@ -221,6 +230,7 @@ class GeckoPromptDelegateTest {
         assertTrue(alertRequest is PromptRequest.Alert)
 
         (alertRequest as PromptRequest.Alert).onDismiss()
+        shadowOf(getMainLooper()).idle()
         assertTrue(dismissWasCalled)
 
         assertEquals((alertRequest as PromptRequest.Alert).title, "title")
@@ -318,8 +328,13 @@ class GeckoPromptDelegateTest {
         geckoResult!!.accept {
             confirmCalled = true
         }
+
+        shadowOf(getMainLooper()).idle()
+
         assertTrue(dateRequest is PromptRequest.TimeSelection)
         (dateRequest as PromptRequest.TimeSelection).onConfirm(Date())
+        shadowOf(getMainLooper()).idle()
+
         assertTrue(confirmCalled)
         assertEquals((dateRequest as PromptRequest.TimeSelection).title, "title")
     }
@@ -376,8 +391,11 @@ class GeckoPromptDelegateTest {
             confirmCalled = true
         }
 
+        shadowOf(getMainLooper()).idle()
+
         assertTrue(dateRequest is PromptRequest.TimeSelection)
         (dateRequest as PromptRequest.TimeSelection).onConfirm(Date())
+        shadowOf(getMainLooper()).idle()
         assertTrue(confirmCalled)
         assertEquals((dateRequest as PromptRequest.TimeSelection).title, "title")
     }
@@ -437,6 +455,7 @@ class GeckoPromptDelegateTest {
 
         assertTrue(dateRequest is PromptRequest.TimeSelection)
         (dateRequest as PromptRequest.TimeSelection).onConfirm(Date())
+        shadowOf(getMainLooper()).idle()
         assertTrue(confirmCalled)
         assertEquals((dateRequest as PromptRequest.TimeSelection).title, "title")
     }
@@ -496,6 +515,8 @@ class GeckoPromptDelegateTest {
 
         assertTrue(dateRequest is PromptRequest.TimeSelection)
         (dateRequest as PromptRequest.TimeSelection).onConfirm(Date())
+        shadowOf(getMainLooper()).idle()
+
         assertTrue(confirmCalled)
         assertEquals((dateRequest as PromptRequest.TimeSelection).title, "title")
     }
@@ -595,11 +616,15 @@ class GeckoPromptDelegateTest {
         }
 
         filePickerRequest.onSingleFileSelected(context, mockUri)
+        shadowOf(getMainLooper()).idle()
+
         assertTrue(onSingleFileSelectedWasCalled)
         whenever(geckoPrompt.isComplete).thenReturn(true)
 
         onSingleFileSelectedWasCalled = false
         filePickerRequest.onSingleFileSelected(context, mockUri)
+        shadowOf(getMainLooper()).idle()
+
         assertFalse(onSingleFileSelectedWasCalled)
 
         geckoPrompt = geckoFilePrompt(type = GECKO_PROMPT_FILE_TYPE.MULTIPLE, capture = ANY)
@@ -609,6 +634,8 @@ class GeckoPromptDelegateTest {
         }
 
         filePickerRequest.onMultipleFilesSelected(context, arrayOf(mockUri))
+        shadowOf(getMainLooper()).idle()
+
         assertTrue(onMultipleFilesSelectedWasCalled)
 
         geckoPrompt = geckoFilePrompt(type = GECKO_PROMPT_FILE_TYPE.SINGLE, capture = NONE)
@@ -618,6 +645,8 @@ class GeckoPromptDelegateTest {
         }
 
         filePickerRequest.onDismiss()
+        shadowOf(getMainLooper()).idle()
+
         assertTrue(onDismissWasCalled)
 
         assertTrue(filePickerRequest.mimeTypes.isEmpty())
@@ -663,6 +692,8 @@ class GeckoPromptDelegateTest {
         }
 
         loginSaveRequest.onDismiss()
+        shadowOf(getMainLooper()).idle()
+
         assertTrue(onDismissWasCalled)
 
         val geckoPrompt = geckoLoginSavePrompt(arrayOf(saveOption))
@@ -673,12 +704,15 @@ class GeckoPromptDelegateTest {
         }
 
         loginSaveRequest.onConfirm(entry)
+        shadowOf(getMainLooper()).idle()
+
         assertTrue(onLoginSaved)
         whenever(geckoPrompt.isComplete).thenReturn(true)
 
         onLoginSaved = false
 
         loginSaveRequest.onConfirm(entry)
+        shadowOf(getMainLooper()).idle()
 
         assertFalse(onLoginSaved)
     }
@@ -695,7 +729,7 @@ class GeckoPromptDelegateTest {
         })
         val login = createLogin()
         val saveOption = Autocomplete.LoginSaveOption(login.toLoginEntry())
-        val saveLoginPrompt = spy(geckoLoginSavePrompt(arrayOf(saveOption)))
+        val saveLoginPrompt = geckoLoginSavePrompt(arrayOf(saveOption))
 
         promptDelegate.onLoginSave(mock(), saveLoginPrompt)
 
@@ -736,6 +770,7 @@ class GeckoPromptDelegateTest {
         }
 
         loginSelectRequest.onDismiss()
+        shadowOf(getMainLooper()).idle()
         assertTrue(onDismissWasCalled)
 
         val geckoPrompt = geckoLoginSelectPrompt(arrayOf(loginSelectOption, secondLoginSelectOption))
@@ -749,11 +784,14 @@ class GeckoPromptDelegateTest {
         }
 
         loginSelectRequest.onConfirm(login)
+        shadowOf(getMainLooper()).idle()
+
         assertTrue(onLoginSelected)
         whenever(geckoPrompt.isComplete).thenReturn(true)
 
         onLoginSelected = false
         loginSelectRequest.onConfirm(login)
+        shadowOf(getMainLooper()).idle()
 
         assertFalse(onLoginSelected)
     }
@@ -844,6 +882,7 @@ class GeckoPromptDelegateTest {
         }
 
         selectCreditCardPrompt.onDismiss()
+        shadowOf(getMainLooper()).idle()
         assertTrue(onDismissWasCalled)
 
         val geckoPrompt =
@@ -855,6 +894,7 @@ class GeckoPromptDelegateTest {
         }
 
         selectCreditCardPrompt.onConfirm(creditCard1)
+        shadowOf(getMainLooper()).idle()
 
         assertTrue(onConfirmWasCalled)
 
@@ -951,11 +991,13 @@ class GeckoPromptDelegateTest {
         with(colorRequest) {
             assertEquals(defaultColor, "#e66465")
             onConfirm("#f6b73c")
+            shadowOf(getMainLooper()).idle()
             assertTrue(onConfirmWasCalled)
             whenever(geckoPrompt.isComplete).thenReturn(true)
 
             onConfirmWasCalled = false
             onConfirm("#f6b73c")
+            shadowOf(getMainLooper()).idle()
             assertFalse(onConfirmWasCalled)
         }
 
@@ -965,6 +1007,7 @@ class GeckoPromptDelegateTest {
         }
 
         colorRequest.onDismiss()
+        shadowOf(getMainLooper()).idle()
         assertTrue(onDismissWasCalled)
 
         with(colorRequest) {
@@ -998,6 +1041,7 @@ class GeckoPromptDelegateTest {
             assertEquals(inputValue, "defaultValue")
 
             onDismiss()
+            shadowOf(getMainLooper()).idle()
             assertTrue(dismissWasCalled)
         }
 
@@ -1008,11 +1052,13 @@ class GeckoPromptDelegateTest {
         }
 
         request.onConfirm(true, "newInput")
+        shadowOf(getMainLooper()).idle()
         assertTrue(confirmWasCalled)
         whenever(geckoPrompt.isComplete).thenReturn(true)
 
         confirmWasCalled = false
         request.onConfirm(true, "newInput")
+        shadowOf(getMainLooper()).idle()
         assertFalse(confirmWasCalled)
     }
 
@@ -1140,11 +1186,13 @@ class GeckoPromptDelegateTest {
             assertEquals(data.url, "https://example.com")
 
             onSuccess()
+            shadowOf(getMainLooper()).idle()
             assertTrue(onSuccessWasCalled)
             whenever(geckoPrompt.isComplete).thenReturn(true)
 
             onSuccessWasCalled = false
             onSuccess()
+            shadowOf(getMainLooper()).idle()
             assertFalse(onSuccessWasCalled)
         }
 
@@ -1155,11 +1203,13 @@ class GeckoPromptDelegateTest {
         }
 
         request!!.onFailure()
+        shadowOf(getMainLooper()).idle()
         assertTrue(onFailureWasCalled)
         whenever(geckoPrompt.isComplete).thenReturn(true)
 
         onFailureWasCalled = false
         request!!.onFailure()
+        shadowOf(getMainLooper()).idle()
 
         assertFalse(onFailureWasCalled)
 
@@ -1170,6 +1220,7 @@ class GeckoPromptDelegateTest {
         }
 
         request!!.onDismiss()
+        shadowOf(getMainLooper()).idle()
         assertTrue(onDismissWasCalled)
     }
 
@@ -1203,11 +1254,13 @@ class GeckoPromptDelegateTest {
             assertEquals(message, "message")
 
             onConfirmPositiveButton(false)
+            shadowOf(getMainLooper()).idle()
             assertTrue(onPositiveButtonWasCalled)
 
             whenever(geckoPrompt.isComplete).thenReturn(true)
             onPositiveButtonWasCalled = false
             onConfirmPositiveButton(false)
+            shadowOf(getMainLooper()).idle()
 
             assertFalse(onPositiveButtonWasCalled)
         }
@@ -1219,6 +1272,7 @@ class GeckoPromptDelegateTest {
         }
 
         request.onConfirmNeutralButton(false)
+        shadowOf(getMainLooper()).idle()
         assertTrue(onNeutralButtonWasCalled)
 
         geckoPrompt = geckoButtonPrompt()
@@ -1228,11 +1282,13 @@ class GeckoPromptDelegateTest {
         }
 
         request.onConfirmNegativeButton(false)
+        shadowOf(getMainLooper()).idle()
         assertTrue(onNegativeButtonWasCalled)
         whenever(geckoPrompt.isComplete).thenReturn(true)
 
         onNegativeButtonWasCalled = false
         request.onConfirmNegativeButton(false)
+        shadowOf(getMainLooper()).idle()
 
         assertFalse(onNegativeButtonWasCalled)
 
@@ -1242,6 +1298,7 @@ class GeckoPromptDelegateTest {
         }
 
         request.onDismiss()
+        shadowOf(getMainLooper()).idle()
         assertTrue(dismissWasCalled)
     }
 
@@ -1266,11 +1323,13 @@ class GeckoPromptDelegateTest {
             onPositiveButtonWasCalled = true
         }
         request.onConfirm()
+        shadowOf(getMainLooper()).idle()
         assertTrue(onPositiveButtonWasCalled)
         whenever(geckoPrompt.isComplete).thenReturn(true)
 
         onPositiveButtonWasCalled = false
         request.onConfirm()
+        shadowOf(getMainLooper()).idle()
 
         assertFalse(onPositiveButtonWasCalled)
 
@@ -1280,11 +1339,13 @@ class GeckoPromptDelegateTest {
             onNegativeButtonWasCalled = true
         }
         request.onDismiss()
+        shadowOf(getMainLooper()).idle()
         assertTrue(onNegativeButtonWasCalled)
         whenever(geckoPrompt.isComplete).thenReturn(true)
 
         onNegativeButtonWasCalled = false
         request.onDismiss()
+        shadowOf(getMainLooper()).idle()
 
         assertFalse(onNegativeButtonWasCalled)
     }
@@ -1505,10 +1566,15 @@ class GeckoPromptDelegateTest {
         return prompt
     }
 
+    @Suppress("UNCHECKED_CAST")
     private fun geckoLoginSavePrompt(
         login: Array<Autocomplete.LoginSaveOption>
     ): GeckoSession.PromptDelegate.AutocompleteRequest<Autocomplete.LoginSaveOption> {
-        val prompt: GeckoSession.PromptDelegate.AutocompleteRequest<Autocomplete.LoginSaveOption> = mock()
+        val prompt = Mockito.mock(
+            GeckoSession.PromptDelegate.AutocompleteRequest::class.java,
+            Mockito.RETURNS_DEEP_STUBS // for testing prompt.delegate
+        ) as GeckoSession.PromptDelegate.AutocompleteRequest<Autocomplete.LoginSaveOption>
+
         ReflectionUtils.setField(prompt, "options", login)
         return prompt
     }

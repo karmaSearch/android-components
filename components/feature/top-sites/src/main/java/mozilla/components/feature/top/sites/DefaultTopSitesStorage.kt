@@ -10,10 +10,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import mozilla.components.browser.storage.sync.PlacesHistoryStorage
 import mozilla.components.concept.storage.FrecencyThresholdOption
-import mozilla.components.feature.top.sites.TopSite.Type.FRECENT
 import mozilla.components.feature.top.sites.ext.hasUrl
 import mozilla.components.feature.top.sites.ext.toTopSite
 import mozilla.components.feature.top.sites.facts.emitTopSitesCountFact
+import mozilla.components.support.base.log.logger.Logger
 import mozilla.components.support.base.observer.Observable
 import mozilla.components.support.base.observer.ObserverRegistry
 import kotlin.coroutines.CoroutineContext
@@ -24,17 +24,21 @@ import kotlin.coroutines.CoroutineContext
  * @param pinnedSitesStorage An instance of [PinnedSiteStorage], used for storing pinned sites.
  * @param historyStorage An instance of [PlacesHistoryStorage], used for retrieving top frecent
  * sites from history.
+ * @param topSitesProvider An optional instance of [TopSitesProvider], used for retrieving
+ * additional top sites from a provider. The returned top sites are added before pinned sites.
  * @param defaultTopSites A list containing a title to url pair of default top sites to be added
  * to the [PinnedSiteStorage].
  */
 class DefaultTopSitesStorage(
     private val pinnedSitesStorage: PinnedSiteStorage,
     private val historyStorage: PlacesHistoryStorage,
+    private val topSitesProvider: TopSitesProvider? = null,
     private val defaultTopSites: List<Pair<String, String>> = listOf(),
     coroutineContext: CoroutineContext = Dispatchers.IO
 ) : TopSitesStorage, Observable<TopSitesStorage.Observer> by ObserverRegistry() {
 
     private var scope = CoroutineScope(coroutineContext)
+    private val logger = Logger("DefaultTopSitesStorage")
 
     // Cache of the last retrieved top sites
     var cachedTopSites = listOf<TopSite>()
@@ -56,13 +60,15 @@ class DefaultTopSitesStorage(
 
     override fun removeTopSite(topSite: TopSite) {
         scope.launch {
-            if (topSite.type != FRECENT) {
+            if (topSite is TopSite.Default || topSite is TopSite.Pinned) {
                 pinnedSitesStorage.removePinnedSite(topSite)
             }
 
             // Remove the top site from both history and pinned sites storage to avoid having it
             // show up as a frecent site if it is a pinned site.
-            historyStorage.deleteVisitsFor(topSite.url)
+            if (topSite !is TopSite.Provided) {
+                historyStorage.deleteVisitsFor(topSite.url)
+            }
 
             notifyObservers { onStorageUpdated() }
         }
@@ -70,7 +76,7 @@ class DefaultTopSitesStorage(
 
     override fun updateTopSite(topSite: TopSite, title: String, url: String) {
         scope.launch {
-            if (topSite.type != FRECENT) {
+            if (topSite is TopSite.Default || topSite is TopSite.Pinned) {
                 pinnedSitesStorage.updatePinnedSite(topSite, title, url)
             }
 
@@ -78,14 +84,35 @@ class DefaultTopSitesStorage(
         }
     }
 
+    @Suppress("ComplexCondition", "TooGenericExceptionCaught")
     override suspend fun getTopSites(
         totalSites: Int,
         frecencyConfig: FrecencyThresholdOption?,
+        providerConfig: TopSitesProviderConfig?,
         searchEngineStartURL: String?
     ): List<TopSite> {
         val topSites = ArrayList<TopSite>()
         val pinnedSites = pinnedSitesStorage.getPinnedSites().take(totalSites)
-        val numSitesRequired = totalSites - pinnedSites.size
+        var providerTopSites = emptyList<TopSite>()
+        var numSitesRequired = totalSites - pinnedSites.size
+
+        if (topSitesProvider != null &&
+            providerConfig != null &&
+            providerConfig.showProviderTopSites &&
+            pinnedSites.size < providerConfig.maxThreshold
+        ) {
+            try {
+                providerTopSites = topSitesProvider
+                    .getTopSites(allowCache = true)
+                    .take(numSitesRequired)
+                    .take(providerConfig.maxThreshold - pinnedSites.size)
+                topSites.addAll(providerTopSites)
+                numSitesRequired -= providerTopSites.size
+            } catch (e: Exception) {
+                logger.error("Failed to fetch top sites from provider", e)
+            }
+        }
+
         topSites.addAll(pinnedSites)
 
         Log.d("DefaultSearchEngine", searchEngineStartURL.toString())
@@ -95,7 +122,7 @@ class DefaultTopSitesStorage(
             val frecentSites = historyStorage
                 .getTopFrecentSites(totalSites, frecencyConfig)
                 .map { it.toTopSite() }
-                .filter { !pinnedSites.hasUrl(it.url)}
+                .filter { !pinnedSites.hasUrl(it.url) && !providerTopSites.hasUrl(it.url) }
                 .filter {  if (searchEngineStartURL != null) !it.url.startsWith(searchEngineStartURL, true) else true }
                 .take(numSitesRequired)
 

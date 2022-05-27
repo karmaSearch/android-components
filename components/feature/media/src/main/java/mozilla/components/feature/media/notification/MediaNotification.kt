@@ -6,6 +6,7 @@ package mozilla.components.feature.media.notification
 
 import android.app.Notification
 import android.app.PendingIntent
+import android.app.PendingIntent.FLAG_UPDATE_CURRENT
 import android.content.Context
 import android.graphics.Bitmap
 import android.os.Build
@@ -22,6 +23,7 @@ import mozilla.components.feature.media.ext.getTitleOrUrl
 import mozilla.components.feature.media.ext.nonPrivateUrl
 import mozilla.components.feature.media.service.AbstractMediaSessionService
 import mozilla.components.support.base.ids.SharedIdsHelper
+import mozilla.components.support.utils.PendingIntentUtils
 import java.util.Locale
 
 /**
@@ -106,14 +108,14 @@ private suspend fun SessionState.toNotificationData(
                     context,
                     0,
                     AbstractMediaSessionService.pauseIntent(context, cls),
-                    0
+                    getNotificationFlag()
                 )
             ).build(),
             contentIntent = PendingIntent.getActivity(
                 context,
                 SharedIdsHelper.getIdForTag(context, AbstractMediaSessionService.PENDING_INTENT_TAG),
                 intent?.apply { putExtra(AbstractMediaSessionService.EXTRA_TAB_ID, id) },
-                PendingIntent.FLAG_UPDATE_CURRENT
+                getUpdateNotificationFlag()
             )
         )
         MediaSession.PlaybackState.PAUSED -> NotificationData(
@@ -128,14 +130,14 @@ private suspend fun SessionState.toNotificationData(
                     context,
                     0,
                     AbstractMediaSessionService.playIntent(context, cls),
-                    0
+                    getNotificationFlag()
                 )
             ).build(),
             contentIntent = PendingIntent.getActivity(
                 context,
                 SharedIdsHelper.getIdForTag(context, AbstractMediaSessionService.PENDING_INTENT_TAG),
                 intent?.apply { putExtra(AbstractMediaSessionService.EXTRA_TAB_ID, id) },
-                PendingIntent.FLAG_UPDATE_CURRENT
+                getUpdateNotificationFlag()
             )
         )
         // Dummy notification that is only used to satisfy the requirement to ALWAYS call
@@ -152,3 +154,7 @@ private data class NotificationData(
     val action: NotificationCompat.Action? = null,
     val contentIntent: PendingIntent? = null
 )
+
+private fun getNotificationFlag() = PendingIntentUtils.defaultFlags
+
+private fun getUpdateNotificationFlag() = PendingIntentUtils.defaultFlags or FLAG_UPDATE_CURRENT
