@@ -13,6 +13,7 @@ internal object LearnAndActTestResources {
 
     val apiExpectedLearnAndAct: List<LearnAndActApi> = listOf(
         LearnAndActApi(
+            id = 0,
             title = "Save the Okavango River Basin from Oil Drilling",
             link = "https://okavango.rewild.org/",
             mobile_image = "https://storage.googleapis.com/learn-and-act-and-images.appspot.com/L&A/images/mobile/en/Save_Okavango_river.webp",
@@ -22,6 +23,7 @@ internal object LearnAndActTestResources {
             description = "Sign an open letter to stop oil and gas drilling by Canadian company ReconAfrica in the Okavango River Basin. Share this action with others!"
         ),
         LearnAndActApi(
+            id = 1,
             title = "Protect tropical forest and marine habitats",
             link = "https://action.ifaw.org/page/79725/action/1",
             mobile_image = "https://storage.googleapis.com/learn-and-act-and-images.appspot.com/L&A/images/mobile/en/Protect_marine_habitats.webp",

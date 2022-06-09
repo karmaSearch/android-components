@@ -26,6 +26,7 @@ internal class LearnAndActJSONParser {
     private fun jsonToLearnAndActApi(json: JSONObject): LearnAndActApi? = try {
         LearnAndActApi(
             // These three properties are required for any valid recommendation.
+            id = json.getInt("id"),
             type = json.getString("type"),
             duration = json.getString("duration"),
             mobile_image = json.getString("mobileImage"),

@@ -7,30 +7,49 @@ import karma.service.learnandact.api.LearnAndActResponse
 import mozilla.components.concept.fetch.Client
 
 class LearnAndActUseCases {
-    internal inner class GetLearnAndActBlocs(private val context: Context) {
-        suspend operator fun invoke(): List<LearnAndAct> {
+    /**
+     * Allows for refreshing the list of pocket stories we have cached.
+     *
+     * @param context Android Context. Prefer sending application context to limit the possibility of even small leaks.
+     */
+    internal inner class RefreshLearnAndAct(
+        @VisibleForTesting
+        internal val context: Context
+    ) {
+        /**
+         * Do a full download from Pocket -> persist locally cycle for recommended stories.
+         */
+        suspend operator fun invoke(): Boolean {
             val client = fetchClient
             if (client == null) {
                 logger.error("Cannot download new stories. Service has incomplete setup")
-                return emptyList()
+                return false
             }
 
-            val endpoint = getLearnAndActEndpoint(client)
-            val response = endpoint.getLearnAndActBlocs()
+            val pocket = getLearnAndActEndpoint(client)
+            val response = pocket.getLearnAndActBlocs()
 
             if (response is LearnAndActResponse.Success) {
-
-                return response.data.map {
-                    it.toLearnAndAct()
-                }
+                getLearnAndActRepository(context)
+                    .addAllLearnAndAct(response.data)
+                return true
             }
 
-            return emptyList()
+            return false
         }
     }
 
+
     @VisibleForTesting
-    internal fun getLearnAndEndpoint(client: Client) = LearnAndActEndpoint.newInstance(client)
+    internal fun getLearnAndActRepository(context: Context) = LearnAndActRepository(context)
+
+    internal inner class GetLearnAndActBlocs(private val context: Context) {
+        suspend operator fun invoke(): List<LearnAndAct> {
+
+            return getLearnAndActRepository(context)
+                .getLearnAndActBlocs()
+        }
+    }
 
     @VisibleForTesting
     internal fun getLearnAndActEndpoint(client: Client) = LearnAndActEndpoint.newInstance(client)

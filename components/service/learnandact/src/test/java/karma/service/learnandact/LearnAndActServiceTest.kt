@@ -15,12 +15,14 @@ import kotlin.reflect.KVisibility
 
 @RunWith(AndroidJUnit4::class)
 class LearnAndActServiceTest {
-    private val service = LearnAndActService(mock(), testContext).also {
+
+    private val service = LearnAndActService(testContext, LearnAndActConfig(mock())).also {
+        it.scheduler = mock()
         it.getLearnAndActUsecase = mock()
     }
 
     @Test
-    fun `GIVEN PocketStoriesService WHEN getStories THEN getStoriesUsecase should return`() = runBlocking {
+    fun `GIVEN PocketStoriesService WHEN getStories THEN getLearnAndActUsecase should return`() = runBlocking {
         val stories = listOf(mock<LearnAndAct>())
         whenever(service.getLearnAndActUsecase.invoke()).thenReturn(stories)
 
