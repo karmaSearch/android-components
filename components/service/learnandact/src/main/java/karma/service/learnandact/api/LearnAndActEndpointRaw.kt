@@ -24,7 +24,11 @@ internal class LearnAndActEndpointRaw internal constructor(
     @WorkerThread // synchronous request.
     private fun makeRequest(): String? {
         val locale = Locale.getDefault().toString()
-        val jsonFile = if (locale.contains("fr")) "learn-and-act-fr.json" else "learn-and-act-en.json"
+        val jsonFile = when {
+            locale.contains("fr") -> "learn-and-act-fr.json"
+            locale.contains("es") -> "learn-and-act-es.json"
+            else -> "learn-and-act-en.json"
+        }
         val request = Request(pocketEndpointUrl+jsonFile)
         return client.fetchBodyOrNull(request)
     }
