@@ -14,7 +14,7 @@ internal class LearnAndActRepository(context: Context) {
      * Get the current locally persisted list of Pocket recommended articles.
      */
     suspend fun getLearnAndActBlocs(): List<LearnAndAct> {
-        return pocketRecommendationsDao.getLearnAndAct().map { it.toLearnAndAct() }
+        return pocketRecommendationsDao.getLearnAndAct().map { it.toLearnAndAct() }.asReversed()
     }
     /**
      * Replace the current list of locally persisted Pocket recommended articles.
